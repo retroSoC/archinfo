@@ -8,7 +8,6 @@
 // MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
 // See the Mulan PSL v2 for more details.
 
-`include "archinfo_define.svh"
 
 class ArchInfoTest extends APB4Master;
   string                 name;
@@ -27,9 +26,9 @@ endfunction
 
 task ArchInfoTest::test_reset_reg();
   super.test_reset_reg();
-  this.rd_check(`ARCHINFO_SYS_ADDR, "SYS_VAL REG", `SYS_VAL, Helper::EQUL, Helper::INFO);
-  this.rd_check(`ARCHINFO_IDL_ADDR, "IDL_VAL REG", `IDL_VAL, Helper::EQUL, Helper::INFO);
-  this.rd_check(`ARCHINFO_IDH_ADDR, "IDH_VAL REG", `IDH_VAL, Helper::EQUL, Helper::INFO);
+  this.rd_check(ARCHINFO_SYS_ADDR, "ARCHINFO_SYS_INIT REG", 20'hF_1010, Helper::EQUL, Helper::INFO);
+  this.rd_check(ARCHINFO_IDL_ADDR, "ARCHINFO_IDL_INIT REG", 32'hFFFF_2022, Helper::EQUL, Helper::INFO);
+  this.rd_check(ARCHINFO_IDH_ADDR, "ARCHINFO_IDH_INIT REG", 24'hFF_FFFF, Helper::EQUL, Helper::INFO);
 endtask
 
 task ArchInfoTest::test_wr_rd_reg(input bit [31:0] run_times = 1000);
@@ -37,9 +36,9 @@ task ArchInfoTest::test_wr_rd_reg(input bit [31:0] run_times = 1000);
 
   for (int i = 0; i < run_times; i++) begin
     // verilog_format: off
-    this.wr_rd_check(`ARCHINFO_SYS_ADDR, "SYS_VAL REG", $random & {`ARCHINFO_SYS_WIDTH{1'b1}}, Helper::EQUL);
-    this.wr_rd_check(`ARCHINFO_IDL_ADDR, "IDL_VAL REG", $random & {`ARCHINFO_IDL_WIDTH{1'b1}}, Helper::EQUL);
-    this.wr_rd_check(`ARCHINFO_IDH_ADDR, "IDH_VAL REG", $random & {`ARCHINFO_IDH_WIDTH{1'b1}}, Helper::EQUL);
+    this.wr_rd_check(ARCHINFO_SYS_ADDR, "ARCHINFO_SYS_INIT REG", $random & {ARCHINFO_SYS_WIDTH{1'b1}}, Helper::EQUL);
+    this.wr_rd_check(ARCHINFO_IDL_ADDR, "ARCHINFO_IDL_INIT REG", $random & {ARCHINFO_IDL_WIDTH{1'b1}}, Helper::EQUL);
+    this.wr_rd_check(ARCHINFO_IDH_ADDR, "ARCHINFO_IDH_INIT REG", $random & {ARCHINFO_IDH_WIDTH{1'b1}}, Helper::EQUL);
     // verilog_format: on
   end
 

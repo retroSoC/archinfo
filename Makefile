@@ -1,8 +1,7 @@
-
 comp-smoke:
 	make -C dv/smoke comp
 
-run-smoke:
+run-smoke: comp-smoke
 	make -C dv/smoke run
 
 wave-smoke:
