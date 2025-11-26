@@ -27,10 +27,16 @@ module archinfo_reg (
   assign apb4.pslverr    = 1'b0;
 
 
-  assign s_arch_sys_d    = apb4.pwdata[ARCHINFO_SYS_WIDTH-1:0];
+  always_comb begin
+    s_arch_sys_d = apb4.pwdata[$bits(archinfo_sys_reg_t)-1:0];
+    if (apb4.pstrb[0]) s_arch_sys_d[7:0] = apb4.pwdata[7:0];
+    if (apb4.pstrb[1]) s_arch_sys_d[15:8] = apb4.pwdata[15:8];
+    if (apb4.pstrb[2])
+      s_arch_sys_d[$bits(archinfo_sys_reg_t)-1:16] = apb4.pwdata[$bits(archinfo_sys_reg_t)-1:16];
+  end
   dfferc #(
-      .REG_TYPE  (archinfo_sys_reg_t),
-      .RESET_VAL (ARCHINFO_SYS_INIT)
+      .REG_TYPE (archinfo_sys_reg_t),
+      .RESET_VAL(ARCHINFO_SYS_INIT)
   ) u_arch_sys_dfferc (
       apb4.pclk,
       apb4.presetn,
@@ -40,10 +46,17 @@ module archinfo_reg (
   );
 
 
-  assign s_arch_idl_d = apb4.pwdata[ARCHINFO_IDL_WIDTH-1:0];
+  always_comb begin
+    s_arch_idl_d = apb4.pwdata[$bits(archinfo_idl_reg_t)-1:0];
+    if (apb4.pstrb[0]) s_arch_idl_d[7:0] = apb4.pwdata[7:0];
+    if (apb4.pstrb[1]) s_arch_idl_d[15:8] = apb4.pwdata[15:8];
+    if (apb4.pstrb[2]) s_arch_idl_d[23:16] = apb4.pwdata[23:16];
+    if (apb4.pstrb[3])
+      s_arch_idl_d[$bits(archinfo_idl_reg_t)-1:24] = apb4.pwdata[$bits(archinfo_idl_reg_t)-1:24];
+  end
   dfferc #(
-      .REG_TYPE  (archinfo_idl_reg_t),
-      .RESET_VAL (ARCHINFO_IDL_INIT)
+      .REG_TYPE (archinfo_idl_reg_t),
+      .RESET_VAL(ARCHINFO_IDL_INIT)
   ) u_arch_idl_dfferc (
       apb4.pclk,
       apb4.presetn,
@@ -53,10 +66,16 @@ module archinfo_reg (
   );
 
 
-  assign s_arch_idh_d = apb4.pwdata[ARCHINFO_IDH_WIDTH-1:0];
+  always_comb begin
+    s_arch_idh_d = apb4.pwdata[$bits(archinfo_idh_reg_t)-1:0];
+    if (apb4.pstrb[0]) s_arch_idh_d[7:0] = apb4.pwdata[7:0];
+    if (apb4.pstrb[1]) s_arch_idh_d[15:8] = apb4.pwdata[15:8];
+    if (apb4.pstrb[2])
+      s_arch_idh_d[$bits(archinfo_idh_reg_t)-1:16] = apb4.pwdata[$bits(archinfo_idh_reg_t)-1:16];
+  end
   dfferc #(
-      .REG_TYPE  (archinfo_idh_reg_t),
-      .RESET_VAL (ARCHINFO_IDH_INIT)
+      .REG_TYPE (archinfo_idh_reg_t),
+      .RESET_VAL(ARCHINFO_IDH_INIT)
   ) u_arch_idh_dfferc (
       apb4.pclk,
       apb4.presetn,
@@ -69,9 +88,9 @@ module archinfo_reg (
     apb4.prdata = '0;
     if (s_apb4_rd_hdshk) begin
       unique case (s_apb4_addr)
-        ARCHINFO_SYS: apb4.prdata[ARCHINFO_SYS_WIDTH-1:0] = s_arch_sys_q;
-        ARCHINFO_IDL: apb4.prdata[ARCHINFO_IDL_WIDTH-1:0] = s_arch_idl_q;
-        ARCHINFO_IDH: apb4.prdata[ARCHINFO_IDH_WIDTH-1:0] = s_arch_idh_q;
+        ARCHINFO_SYS: apb4.prdata[$bits(archinfo_sys_reg_t)-1:0] = s_arch_sys_q;
+        ARCHINFO_IDL: apb4.prdata[$bits(archinfo_idl_reg_t)-1:0] = s_arch_idl_q;
+        ARCHINFO_IDH: apb4.prdata[$bits(archinfo_idh_reg_t)-1:0] = s_arch_idh_q;
         default:      apb4.prdata = '0;
       endcase
     end
