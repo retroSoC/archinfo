@@ -34,7 +34,7 @@ module archinfo_reg (
     if (apb4.pstrb[2])
       s_arch_sys_d[$bits(archinfo_sys_reg_t)-1:16] = apb4.pwdata[$bits(archinfo_sys_reg_t)-1:16];
   end
-  dfferc #(
+  dffercn #(
       .REG_TYPE (archinfo_sys_reg_t),
       .RESET_VAL(ARCHINFO_SYS_INIT)
   ) u_arch_sys_dfferc (
@@ -54,7 +54,7 @@ module archinfo_reg (
     if (apb4.pstrb[3])
       s_arch_idl_d[$bits(archinfo_idl_reg_t)-1:24] = apb4.pwdata[$bits(archinfo_idl_reg_t)-1:24];
   end
-  dfferc #(
+  dffercn #(
       .REG_TYPE (archinfo_idl_reg_t),
       .RESET_VAL(ARCHINFO_IDL_INIT)
   ) u_arch_idl_dfferc (
@@ -73,7 +73,7 @@ module archinfo_reg (
     if (apb4.pstrb[2])
       s_arch_idh_d[$bits(archinfo_idh_reg_t)-1:16] = apb4.pwdata[$bits(archinfo_idh_reg_t)-1:16];
   end
-  dfferc #(
+  dffercn #(
       .REG_TYPE (archinfo_idh_reg_t),
       .RESET_VAL(ARCHINFO_IDH_INIT)
   ) u_arch_idh_dfferc (
