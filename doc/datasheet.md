@@ -1,87 +1,78 @@
-## Datasheet
+# ARCHINFO ABI V2 Datasheet
 
-### Overview
-The `archinfo` IP is a fully parameterised soft IP recording the SoC architecture and ASIC backend informations. The IP features an APB4 slave interface, fully compliant with the AMBA APB Protocol Specification v2.0. For testing purposes, the registers of `archinfo` are writable. But in production environment, these registers are read-only. 
+## Purpose
 
-### Feature
-* 32-bit read-only system architecture register
-* 64-bit read-only id architecture register
-* Static synchronous design
-* Full synthesizable
+ARCHINFO provides immutable hardware identity and build provenance through an
+APB4 slave. It is intended for boot compatibility checks, support logs,
+manufacturing records, and firmware feature discovery. It is not a security
+root: security-sensitive device identity must be qualified by the integration's
+lifecycle and access-control policy.
 
-### Interface
-| port name | type        | description          |
-|:--------- |:------------|:---------------------|
-| apb4      | interface   | apb4 slave interface |
+All registers are 32-bit, read-only, and naturally aligned. `PREADY` is always
+high. A write, unaligned access, unmapped offset, or denied device-ID read
+asserts `PSLVERR` only in the APB access phase and returns zero read data.
 
-### Register
+## Interface
 
-| name | offset  | length | description |
-|:----:|:-------:|:-----: | :---------: |
-| [SYS](#system-info-register) | 0x0 | 4 | system info register |
-| [IDL](#id-low-reigster) | 0x4 | 4 | id low register |
-| [IDH](#id-high-reigster) | 0x8 | 4 | id high register |
+| Port | Direction | Description |
+| --- | --- | --- |
+| `device_id_i[127:0]` | input | Lifecycle/OTP supplied identity, least-significant word first |
+| `device_id_valid_i` | input | Identity has been provisioned and is stable |
+| `device_id_read_enable_i` | input | Current lifecycle policy permits software reads |
+| `apb4` | interface slave | 32-bit APB4 interface from Common |
 
-#### System Info Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:20]` | none | reserved |
-| `[19:8]` | RW | CLOCK |
-| `[7:0]` | RW | SRAM |
+The three device identity inputs must be synchronous to `apb4.pclk`, or held
+static after reset. An integration using another clock or power domain must add
+a qualified CDC/lifecycle bridge before this IP.
 
-reset value: `depend on specific shuttle`
+## Register Map
 
-* CLOCK: core clock frequency information by using three-bit BCD code
-* SRAM: the total size of SRAM, unit: KB. example: `SRAM=128` means 128KB
+| Offset | Name | Reset/source | Description |
+| ---: | --- | --- | --- |
+| `0x000` | `COMPONENT_ID` | `0x41524348` | ASCII `ARCH` |
+| `0x004` | `VENDOR_ID` | parameter | JEP106-compatible vendor encoding; zero means unassigned |
+| `0x008` | `SOC_ID` | `0x4D494E49` | ASCII `MINI` default SoC family |
+| `0x00C` | `SOC_REVISION` | parameter | Major/minor implementation revision |
+| `0x010` | `BUILD_ID_LO` | parameter | Source revision bits 31:0 |
+| `0x014` | `BUILD_ID_HI` | parameter | Source revision bits 63:32 |
+| `0x018` | `CONFIG_ID` | parameter | First 32 bits of canonical configuration digest |
+| `0x01C` | `BUILD_STATUS` | parameter | Build provenance flags |
+| `0x020` | `REFERENCE_CLOCK_HZ` | parameter | External/reference clock, not dynamic PLL output |
+| `0x024` | `SRAM_BYTES` | parameter | Integrated SRAM capacity; zero means no SRAM interface |
+| `0x028` | `TOPOLOGY` | parameter | GPIO/user-core/management-hart/IRQ counts |
+| `0x02C` | `FEATURES0` | parameter | SoC feature bitmap |
+| `0x030` | `TECHNOLOGY` | parameter | Process, PDK, and target class |
+| `0x034` | `DEVICE_ID_STATUS` | inputs | Provisioning/access state and byte width |
+| `0x038` | `DEVICE_ID0` | gated input | Device ID bits 31:0 |
+| `0x03C` | `DEVICE_ID1` | gated input | Device ID bits 63:32 |
+| `0x040` | `DEVICE_ID2` | gated input | Device ID bits 95:64 |
+| `0x044` | `DEVICE_ID3` | gated input | Device ID bits 127:96 |
+| `0x0F8` | `IP_VERSION` | `0x00020000` | ARCHINFO implementation ABI version |
+| `0x0FC` | `CAPABILITY` | `0x023F1014` | ABI, capabilities, ID width, register count |
 
-#### ID Low Reigster
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:30]` | RW | TYPE |
-| `[29:22]` | RW | VENDOR |
-| `[21:6]` | RW | PROCESS |
-| `[5:0]` | RW | CUST |
+`BUILD_STATUS[0]` is dirty, bit 1 is dependency-lock valid, bit 2 is release,
+and bit 3 is source-known. Unknown source revision produces a zero `BUILD_ID`
+and clears source-known.
 
-reset value: `depend on specific shuttle`
+`TOPOLOGY[7:0]` is the management-hart count, bits 15:8 are user-core slots,
+bits 23:16 are GPIO count, and bits 31:24 are interrupt-vector width.
 
-* TYPE: tape out type 
-    * `2'b00`: OSOC (one student one chip)
-    * `2'b01`: IEDA (open source eda)
-    * `2'b10`: EP (epiboly)
-    * `2'b11`: TEST (prototype test)
-* VENDOR: asic vendor encoding, the encoding table is currently not publicly open available
-* PROCESS: the process of tape out by using 4-bit BCD code, for example, the `0130` means the 130nm process
-* CUST: user customized information
+`TECHNOLOGY[15:0]` is process nanometers, bits 23:16 are the PDK ID, and bits
+31:24 are the target class. Defined PDK IDs are IHP130=1, GF180=2, SKY130=3,
+and ICS55=4. Target class 2 denotes ASIC.
 
-#### ID High Reigster
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:24]` | none | reserved |
-| `[23:0]` | RW | DATE |
+`DEVICE_ID_STATUS[0]` is valid, bit 1 is read-enable, bit 2 is readable, and
+bits 15:8 contain the fixed width of 16 bytes. Device data registers are legal
+only when readable is one.
 
-reset value: `depend on specific shuttle`
+`CAPABILITY[31:24]` is ABI 2, bits 23:16 are capability flags, bits 15:8 are
+the device-ID width, and bits 7:0 are the register count. Capability flags
+identify strict errors, build ID, config ID, topology, technology, and device
+ID support.
 
-* DATE: the date of tape out by using six-bit BCD code, for example: 202404
+## Software Rules
 
-### Program Guide
-The software operation of `archinfo` is simple. These registers can be accessed by 4-byte aligned read and write. C-like pseudocode read operation:
-```c
-uint32_t val;
-val = archinfo.SYS // read the sys register
-val = archinfo.IDL // read the idl register
-val = archinfo.IDH // read the idh register
-
-```
-write operation:
-```c
-uint32_t val = value_to_be_written;
-archinfo.SYS = val // write the sys register
-archinfo.IDL = val // write the idl register
-archinfo.IDH = val // write the idh register
-
-```
-complete driver and test codes in [driver](../driver/) dir. 
-
-### Resoureces
-### References
-### Revision History
+Firmware should first read `COMPONENT_ID`, `IP_VERSION`, and `CAPABILITY`, then
+validate the ABI before interpreting optional fields. Read
+`DEVICE_ID_STATUS` before accessing identity words. The integration must keep
+lifecycle controls stable across the status and data reads.

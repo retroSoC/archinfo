@@ -1,99 +1,96 @@
 // Copyright (c) 2023-2026 Yuchi Miao <miaoyuchi@ict.ac.cn>
-// archinfo is licensed under Mulan PSL v2.
-// You can use this software according to the terms and conditions of the Mulan PSL v2.
-// You may obtain a copy of Mulan PSL v2 at:
-//             http://license.coscl.org.cn/MulanPSL2
-// THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-// EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-// MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-// See the Mulan PSL v2 for more details.
+// SPDX-License-Identifier: MulanPSL-2.0
 
-import archinfo_reg_pkg::*;
+`include "archinfo_define.svh"
 
-module archinfo_reg (
-    apb4_if.slave apb4
+module archinfo_reg #(
+    // verilog_format: off
+    parameter logic [31:0] VENDOR_ID         = 32'h0000_0000,
+    parameter logic [31:0] SOC_REVISION      = 32'h0001_0000,
+    parameter logic [63:0] BUILD_ID          = 64'h0000_0000_0000_0000,
+    parameter logic [31:0] CONFIG_ID         = 32'h0000_0000,
+    parameter logic [31:0] BUILD_STATUS      = 32'h0000_0000,
+    parameter logic [31:0] REFERENCE_CLOCK_HZ = 32'd72_000_000,
+    parameter logic [31:0] SRAM_BYTES        = 32'h0000_0000,
+    parameter logic [31:0] TOPOLOGY          = 32'h0000_0000,
+    parameter logic [31:0] FEATURES0         = 32'h0000_0000,
+    parameter logic [31:0] TECHNOLOGY        = 32'h0000_0000
+    // verilog_format: on
+) (
+    // verilog_format: off
+    input  logic [11:0]  paddr_i,
+    input  logic         psel_i,
+    input  logic         penable_i,
+    input  logic         pwrite_i,
+    input  logic [127:0] device_id_i,
+    input  logic         device_id_valid_i,
+    input  logic         device_id_read_enable_i,
+    output logic         pready_o,
+    output logic [31:0]  prdata_o,
+    output logic         pslverr_o
+    // verilog_format: on
 );
 
-  logic [3:0] s_apb4_addr;
-  logic s_apb4_wr_hdshk, s_apb4_rd_hdshk;
-  archinfo_sys_reg_t s_arch_sys_d, s_arch_sys_q;
-  archinfo_idl_reg_t s_arch_idl_d, s_arch_idl_q;
-  archinfo_idh_reg_t s_arch_idh_d, s_arch_idh_q;
+  logic s_device_id_readable;
+  logic s_read_mapped;
+  logic s_transfer;
 
-  assign s_apb4_addr     = apb4.paddr[5:2];
-  assign s_apb4_wr_hdshk = apb4.psel && apb4.penable && apb4.pwrite;
-  assign s_apb4_rd_hdshk = apb4.psel && apb4.penable && (~apb4.pwrite);
-  assign apb4.pready     = 1'b1;
-  assign apb4.pslverr    = 1'b0;
-
+  assign s_transfer           = psel_i && penable_i;
+  assign s_device_id_readable = device_id_valid_i && device_id_read_enable_i;
+  assign pready_o             = 1'b1;
 
   always_comb begin
-    s_arch_sys_d = apb4.pwdata[$bits(archinfo_sys_reg_t)-1:0];
-    if (apb4.pstrb[0]) s_arch_sys_d[7:0] = apb4.pwdata[7:0];
-    if (apb4.pstrb[1]) s_arch_sys_d[15:8] = apb4.pwdata[15:8];
-    if (apb4.pstrb[2])
-      s_arch_sys_d[$bits(archinfo_sys_reg_t)-1:16] = apb4.pwdata[$bits(archinfo_sys_reg_t)-1:16];
-  end
-  dffercn #(
-      .REG_TYPE (archinfo_sys_reg_t),
-      .RESET_VAL(ARCHINFO_SYS_INIT)
-  ) u_arch_sys_dfferc (
-      apb4.pclk,
-      apb4.presetn,
-      s_apb4_wr_hdshk && s_apb4_addr == ARCHINFO_SYS,
-      s_arch_sys_d,
-      s_arch_sys_q
-  );
+    prdata_o      = '0;
+    s_read_mapped = 1'b1;
 
+    unique case (paddr_i)
+      `ARCHINFO_COMPONENT_ID_OFFSET:    prdata_o = `ARCHINFO_COMPONENT_ID_VALUE;
+      `ARCHINFO_VENDOR_ID_OFFSET:       prdata_o = VENDOR_ID;
+      `ARCHINFO_SOC_ID_OFFSET:          prdata_o = `ARCHINFO_SOC_ID_VALUE;
+      `ARCHINFO_SOC_REVISION_OFFSET:    prdata_o = SOC_REVISION;
+      `ARCHINFO_BUILD_ID_LO_OFFSET:     prdata_o = BUILD_ID[31:0];
+      `ARCHINFO_BUILD_ID_HI_OFFSET:     prdata_o = BUILD_ID[63:32];
+      `ARCHINFO_CONFIG_ID_OFFSET:       prdata_o = CONFIG_ID;
+      `ARCHINFO_BUILD_STATUS_OFFSET:    prdata_o = BUILD_STATUS;
+      `ARCHINFO_REFERENCE_CLOCK_OFFSET: prdata_o = REFERENCE_CLOCK_HZ;
+      `ARCHINFO_SRAM_BYTES_OFFSET:      prdata_o = SRAM_BYTES;
+      `ARCHINFO_TOPOLOGY_OFFSET:        prdata_o = TOPOLOGY;
+      `ARCHINFO_FEATURES0_OFFSET:       prdata_o = FEATURES0;
+      `ARCHINFO_TECHNOLOGY_OFFSET:      prdata_o = TECHNOLOGY;
+      `ARCHINFO_DEVICE_ID_STATUS_OFFSET: begin
+        prdata_o = {
+          16'h0000, 8'd16, 5'h00, s_device_id_readable, device_id_read_enable_i, device_id_valid_i
+        };
+      end
+      `ARCHINFO_DEVICE_ID0_OFFSET: begin
+        prdata_o      = s_device_id_readable ? device_id_i[31:0] : 32'h0000_0000;
+        s_read_mapped = s_device_id_readable;
+      end
+      `ARCHINFO_DEVICE_ID1_OFFSET: begin
+        prdata_o      = s_device_id_readable ? device_id_i[63:32] : 32'h0000_0000;
+        s_read_mapped = s_device_id_readable;
+      end
+      `ARCHINFO_DEVICE_ID2_OFFSET: begin
+        prdata_o      = s_device_id_readable ? device_id_i[95:64] : 32'h0000_0000;
+        s_read_mapped = s_device_id_readable;
+      end
+      `ARCHINFO_DEVICE_ID3_OFFSET: begin
+        prdata_o      = s_device_id_readable ? device_id_i[127:96] : 32'h0000_0000;
+        s_read_mapped = s_device_id_readable;
+      end
+      `ARCHINFO_IP_VERSION_OFFSET:      prdata_o = `ARCHINFO_IP_VERSION_VALUE;
+      `ARCHINFO_CAPABILITY_OFFSET:      prdata_o = `ARCHINFO_CAPABILITY_VALUE;
+      default: begin
+        prdata_o      = '0;
+        s_read_mapped = 1'b0;
+      end
+    endcase
 
-  always_comb begin
-    s_arch_idl_d = apb4.pwdata[$bits(archinfo_idl_reg_t)-1:0];
-    if (apb4.pstrb[0]) s_arch_idl_d[7:0] = apb4.pwdata[7:0];
-    if (apb4.pstrb[1]) s_arch_idl_d[15:8] = apb4.pwdata[15:8];
-    if (apb4.pstrb[2]) s_arch_idl_d[23:16] = apb4.pwdata[23:16];
-    if (apb4.pstrb[3])
-      s_arch_idl_d[$bits(archinfo_idl_reg_t)-1:24] = apb4.pwdata[$bits(archinfo_idl_reg_t)-1:24];
-  end
-  dffercn #(
-      .REG_TYPE (archinfo_idl_reg_t),
-      .RESET_VAL(ARCHINFO_IDL_INIT)
-  ) u_arch_idl_dfferc (
-      apb4.pclk,
-      apb4.presetn,
-      s_apb4_wr_hdshk && s_apb4_addr == ARCHINFO_IDL,
-      s_arch_idl_d,
-      s_arch_idl_q
-  );
-
-
-  always_comb begin
-    s_arch_idh_d = apb4.pwdata[$bits(archinfo_idh_reg_t)-1:0];
-    if (apb4.pstrb[0]) s_arch_idh_d[7:0] = apb4.pwdata[7:0];
-    if (apb4.pstrb[1]) s_arch_idh_d[15:8] = apb4.pwdata[15:8];
-    if (apb4.pstrb[2])
-      s_arch_idh_d[$bits(archinfo_idh_reg_t)-1:16] = apb4.pwdata[$bits(archinfo_idh_reg_t)-1:16];
-  end
-  dffercn #(
-      .REG_TYPE (archinfo_idh_reg_t),
-      .RESET_VAL(ARCHINFO_IDH_INIT)
-  ) u_arch_idh_dfferc (
-      apb4.pclk,
-      apb4.presetn,
-      s_apb4_wr_hdshk && s_apb4_addr == ARCHINFO_IDH,
-      s_arch_idh_d,
-      s_arch_idh_q
-  );
-
-  always_comb begin
-    apb4.prdata = '0;
-    if (s_apb4_rd_hdshk) begin
-      unique case (s_apb4_addr)
-        ARCHINFO_SYS: apb4.prdata[$bits(archinfo_sys_reg_t)-1:0] = s_arch_sys_q;
-        ARCHINFO_IDL: apb4.prdata[$bits(archinfo_idl_reg_t)-1:0] = s_arch_idl_q;
-        ARCHINFO_IDH: apb4.prdata[$bits(archinfo_idh_reg_t)-1:0] = s_arch_idh_q;
-        default:      apb4.prdata = '0;
-      endcase
+    if (!s_transfer || pwrite_i || (paddr_i[1:0] != 2'b00)) begin
+      prdata_o = '0;
     end
   end
+
+  assign pslverr_o = s_transfer && (pwrite_i || (paddr_i[1:0] != 2'b00) || !s_read_mapped);
 
 endmodule

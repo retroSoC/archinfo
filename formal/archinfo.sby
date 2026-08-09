@@ -1,0 +1,15 @@
+[options]
+mode prove
+depth 2
+
+[engines]
+smtbmc bitwuzla
+
+[script]
+read -formal -sv -I . archinfo_reg.sv archinfo_formal.sv
+prep -top archinfo_formal
+
+[files]
+rtl/archinfo_define.svh
+rtl/archinfo_reg.sv
+formal/archinfo_formal.sv

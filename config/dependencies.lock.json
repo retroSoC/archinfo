@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "common": {
+      "url": "https://github.com/retroSoC/common.git",
+      "revision": "16ee9a5cfdc1248f35f0993710e3cb89464c19d9",
+      "destination": "build/deps/common",
+      "license": "MulanPSL-2.0"
+    }
+  }
+}
